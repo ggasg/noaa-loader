@@ -4,31 +4,24 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.functions.current_timestamp
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-import java.util.Properties
-
 object StationDetails {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
       throw new IllegalArgumentException("1 Input Argument Required: <Input file Path>")
     }
 
+    val bucket = "gg-tmp"
+    val bucketOutput = "gs://gg-weather-sources/measurements.parquet"
+
     val spark = SparkSession.builder.appName("Station Lookup Table")
       .master("local[1]")
       .config("spark.driver.extraJavaOptions", "- Duser.timezone = UTC")
       .config("spark.executor.extraJavaOptions", "- Duser.timezone = UTC")
       .config("spark.sql.session.timeZone", "UTC")
-//      .config("google.cloud.auth.service.account.json.keyfile", System.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+      .config("temporaryGcsBucket", bucket)
       .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-
-    // TODO - Replace with write to BQ
-    // Mysql Connection Properties
-    val connectionProperties = new Properties()
-    connectionProperties.put("user", "lrngsql")
-    connectionProperties.put("password", "gaston")
-    connectionProperties.put("driver", "com.mysql.cj.jdbc.Driver")
-    val url = "jdbc:mysql://localhost:3306/weather"
 
     // Load NOAA CSV File
     val mainData = spark.read
@@ -37,7 +30,6 @@ object StationDetails {
       .option("header", "true")
       .load(args(0))
 
-//    mainData.printSchema()
 
     // Station Lookup Table
     mainData.select("STATION", "NAME", "LATITUDE", "LONGITUDE", "ELEVATION")
@@ -49,7 +41,9 @@ object StationDetails {
       .withColumn("last_update", current_timestamp())
       .write
       .mode(SaveMode.Append)
-      .jdbc(url, "station", connectionProperties)
+      .format("bigquery")
+      .option("table", "local_weather_info.station")
+      .save()
 
     // Weather Measurements from same file
     mainData.select("DATE", "STATION", "PRCP", "TMAX", "TMIN", "AWND", "PGTM")
@@ -64,10 +58,12 @@ object StationDetails {
       .withColumn("last_update", current_timestamp())
       .write
       .mode(SaveMode.Append)
-      .jdbc(url, "measurements", connectionProperties)
+      .format("bigquery")
+      .option("table", "local_weather_info.measurements")
+      .save()
 
     // Just testing a parquet output
-//    mainData.write.partitionBy("DATE").parquet("output.parquet")
+//    mainData.write.partitionBy("DATE").parquet(bucketOutput)
 
     spark.stop()
   }

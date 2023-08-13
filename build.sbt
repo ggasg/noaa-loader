@@ -11,8 +11,10 @@ lazy val root = (project in file("."))
   )
 
 libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.2.2"
+libraryDependencies += "org.apache.spark" %% "spark-mllib" % "3.2.2"
 libraryDependencies += "mysql" % "mysql-connector-java" % "8.0.33"
 
 libraryDependencies ++= Seq("com.google.cloud.bigdataoss" % "gcs-connector" % gcsVersion,
-  "com.google.cloud" % "google-cloud-storage" % "0.7.0"
+  "com.google.cloud" % "google-cloud-storage" % "0.7.0",
+  "com.google.cloud.spark" % "spark-bigquery-with-dependencies_2.13" % "0.32.2"
 )
