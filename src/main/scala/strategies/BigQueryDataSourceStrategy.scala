@@ -1,10 +1,11 @@
 package com.gaston.pocs
-package destinations
+package strategies
 
 import utils.JobConfig
-import org.apache.spark.sql.{DataFrame, SaveMode}
 
-class BigQueryDestWriter extends DestWriter {
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+
+class BigQueryDataSourceStrategy extends DataSourceStrategy {
   override def write(data: DataFrame, destTableName: String, partitionKey: String): Unit = {
     data.write
       .mode(SaveMode.Append)
@@ -12,4 +13,6 @@ class BigQueryDestWriter extends DestWriter {
       .option("table", JobConfig.getBQDatasetName() + "." + destTableName)
       .save()
   }
+
+  override def read(sparkSession: SparkSession, tableName: String): DataFrame = ???
 }
