@@ -1,19 +1,22 @@
 package com.gaston.pocs
+package core
 
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.functions.current_timestamp
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import utils.JobConfig
+import org.apache.spark.sql.functions.{col, current_timestamp}
+import org.apache.spark.sql.{SparkSession}
 
-object StationDetails {
+object NOAABatchJob {
   def main(args: Array[String]): Unit = {
-    if (args.length != 1) {
+    val destConfig = JobConfig.getDestinationStrategy()
+
+    val inputFile = JobConfig.getInputFile()
+    if (inputFile.isBlank) {
       throw new IllegalArgumentException("1 Input Argument Required: <Input file Path>")
     }
 
-    val bucket = "gg-tmp"
-    val bucketOutput = "gs://gg-weather-sources/measurements.parquet"
+    val bucket = "gs://gg-tmp/"
 
-    val spark = SparkSession.builder.appName("Station Lookup Table")
+    val spark = SparkSession.builder.appName("NOAA Weather Station Measurements")
       .master("local[1]")
       .config("spark.driver.extraJavaOptions", "- Duser.timezone = UTC")
       .config("spark.executor.extraJavaOptions", "- Duser.timezone = UTC")
@@ -28,42 +31,34 @@ object StationDetails {
       .format("csv")
       .option("inferSchema", "true")
       .option("header", "true")
-      .load(args(0))
+      .load(inputFile)
 
-
+    // --- Transformations and cleanup ---
     // Station Lookup Table
-    mainData.select("STATION", "NAME", "LATITUDE", "LONGITUDE", "ELEVATION")
+    val stationLookup = mainData.select("STATION", "NAME", "LATITUDE", "LONGITUDE", "ELEVATION")
       .withColumnRenamed("STATION", "station_id").distinct()
       .withColumnRenamed("NAME", "station_name")
       .withColumnRenamed("LATITUDE", "latitude")
       .withColumnRenamed("LONGITUDE", "longitude")
       .withColumnRenamed("ELEVATION", "elevation")
       .withColumn("last_update", current_timestamp())
-      .write
-      .mode(SaveMode.Append)
-      .format("bigquery")
-      .option("table", "local_weather_info.station")
-      .save()
 
     // Weather Measurements from same file
-    mainData.select("DATE", "STATION", "PRCP", "TMAX", "TMIN", "AWND", "PGTM")
+    val stationMeasures = mainData.select("DATE", "STATION", "PRCP", "TMAX", "TMIN", "AWND", "PGTM")
       .withColumnRenamed("STATION", "station_id")
       .withColumnRenamed("DATE", "date").withColumn("date", col("date").cast("date"))
       .withColumnRenamed("PRCP", "precip")
-//      .withColumnRenamed("TAVG", "avg_temp")
+      //      .withColumnRenamed("TAVG", "avg_temp")
       .withColumnRenamed("TMAX", "max_temp")
       .withColumnRenamed("TMIN", "min_temp")
       .withColumnRenamed("AWND", "avg_wind_speed")
       .withColumnRenamed("PGTM", "peak_gust_time")
+      .where("date IS NOT NULL")
       .withColumn("last_update", current_timestamp())
-      .write
-      .mode(SaveMode.Append)
-      .format("bigquery")
-      .option("table", "local_weather_info.measurements")
-      .save()
 
-    // Just testing a parquet output
-//    mainData.write.partitionBy("DATE").parquet(bucketOutput)
+    // Write to Destination per selected Strategy
+    destConfig.write(stationLookup, "station")
+    destConfig.write(stationMeasures, "measures")
 
     spark.stop()
   }
