@@ -18,3 +18,7 @@ libraryDependencies ++= Seq("com.google.cloud.bigdataoss" % "gcs-connector" % gc
   "com.google.cloud" % "google-cloud-storage" % "0.7.0",
   "com.google.cloud.spark" % "spark-bigquery-with-dependencies_2.13" % "0.32.2"
 )
+
+libraryDependencies += "log4j" % "log4j" % "1.2.17"
+
+libraryDependencies += "org.scalameta" %% "munit" % "0.7.26" % Test
