@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS `measure_errors` (
   `error_cause` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE `measure_aggregates` (
+  `month_of_year` VARCHAR(7),
+  `pct_rainy_days` double DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 
 
 

@@ -7,7 +7,7 @@ import org.apache.log4j.Logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{SparkSession, functions}
 
-object NOAAMeasureJob {
+object NOAAMeasureDiffLoadJob {
   def main(args: Array[String]): Unit = {
     val destConfig = JobConfig.getDestinationStrategy()
 
@@ -68,17 +68,28 @@ object NOAAMeasureJob {
       .where(!isnull(validStationIds("station_id")))
 
     // Invalid records go somewhere else
-    val measuresInvalidStations = validMeasures
+    val measuresLookupFailed = validMeasures
       .withColumn("error_cause", lit("Station Lookup Failed"))
       .join(validStationIds, Seq("station_id"), "leftouter")
       .where(isnull(validStationIds("station_id")))
 
-    // Write to Destination per selected Strategy
+    // Pre-aggregated dataset by Month of Year (Averages, Totals, Maxes, etc)
+    val aggregatesPerMoY = measuresValidStations.select("date", "precip")
+      .withColumn("month_of_year", date_format(col("date"), "y-M"))
+      .groupBy("month_of_year")
+      .agg(countDistinct(when(col("precip") > 0, col("date")).otherwise(null)).as("rainy"),
+        countDistinct("date").as("no_days"))
+      .withColumn("pct_rainy_days", round(($"rainy" / $"no_days") * 100, 2))
+      .drop("precip", "date", "rainy", "no_days")
+
     destConfig.write(measuresValidStations, "measures")
 
-    destConfig.write(measuresInvalidStations, "measure_errors")
-    val numErrors = measuresInvalidStations.count()
+    destConfig.write(measuresLookupFailed, "measure_errors")
+    val numErrors = measuresLookupFailed.count()
+    // TODO - How do we generate a good logging format? Is it necessary when running in GCP?
     if (numErrors > 0) logger.info(s"noaa measures job: Wrote $numErrors records in measure_errors")
+
+    destConfig.write(aggregatesPerMoY, "measure_aggregates")
 
     spark.stop()
   }
