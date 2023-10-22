@@ -1,12 +1,12 @@
 package com.gaston.pocs
-package core
+package job
 
 import utils.{JobConfig, JobUtils}
 
 import org.apache.spark.sql.{SparkSession, functions}
 import org.apache.spark.sql.functions._
 
-object NOAAStationJob {
+object StationsDiffLoad {
   def main(args: Array[String]): Unit = {
 
     val destConfig = JobConfig.getDestinationStrategy()

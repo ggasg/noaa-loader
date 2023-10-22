@@ -1,5 +1,5 @@
 package com.gaston.pocs
-package core
+package job
 
 import utils.{JobConfig, JobUtils}
 
@@ -7,7 +7,7 @@ import org.apache.log4j.Logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{SparkSession, functions}
 
-object NOAAMeasureDiffLoadJob {
+object MeasuresDiffLoad {
   def main(args: Array[String]): Unit = {
     val destConfig = JobConfig.getDestinationStrategy()
 
